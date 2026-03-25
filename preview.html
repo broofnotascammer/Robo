@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Robot AI Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      margin: 0;
+    }
+    h1 { margin-top: 20px; }
+
+    .card {
+      background: #1e293b;
+      margin: 15px;
+      padding: 15px;
+      border-radius: 12px;
+    }
+
+    button {
+      padding: 12px 18px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: white;
+      font-size: 16px;
+    }
+
+    button:hover { background: #2563eb; }
+
+    #log {
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🤖 Robot AI Dashboard</h1>
+
+  <div class="card">
+    <h3>Status</h3>
+    <p id="status">Connecting...</p>
+  </div>
+
+  <div class="card">
+    <h3>Telemetry</h3>
+    <pre id="telemetry">Waiting...</pre>
+  </div>
+
+  <div class="card">
+    <h3>Controls</h3>
+    <button onclick="sendMove('forward')">Forward</button>
+    <button onclick="sendMove('backward')">Backward</button>
+    <button onclick="sendTurn('left')">Left</button>
+    <button onclick="sendTurn('right')">Right</button>
+    <button onclick="sendStop()">Stop</button>
+  </div>
+
+  <div class="card">
+    <h3>Logs</h3>
+    <div id="log"></div>
+  </div>
+
+<script>
+const ws = new WebSocket(
+  (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/dashboard"
+);
+
+const statusEl = document.getElementById("status");
+const telemetryEl = document.getElementById("telemetry");
+const logEl = document.getElementById("log");
+
+ws.onopen = () => {
+  statusEl.innerText = "✅ Connected";
+};
+
+ws.onclose = () => {
+  statusEl.innerText = "❌ Disconnected";
+};
+
+ws.onmessage = (msg) => {
+  const data = JSON.parse(msg.data);
+
+  if (data.type === "status") {
+    statusEl.innerText = data.data.connected ? "🤖 Robot Connected" : "❌ No Robot";
+  }
+
+  if (data.type === "telemetry") {
+    telemetryEl.innerText = JSON.stringify(data.data, null, 2);
+  }
+
+  if (data.type === "log") {
+    const entry = document.createElement("div");
+    entry.innerText = JSON.stringify(data.data);
+    logEl.prepend(entry);
+  }
+
+  if (data.type === "init") {
+    if (data.data.telemetry)
+      telemetryEl.innerText = JSON.stringify(data.data.telemetry, null, 2);
+
+    data.data.log.forEach(l => {
+      const entry = document.createElement("div");
+      entry.innerText = JSON.stringify(l);
+      logEl.appendChild(entry);
+    });
+  }
+};
+
+function sendCommand(cmd) {
+  ws.send(JSON.stringify({
+    type: "manual_command",
+    command: cmd
+  }));
+}
+
+function sendMove(direction) {
+  sendCommand({
+    action: "move",
+    direction: direction,
+    distance_cm: 30
+  });
+}
+
+function sendTurn(direction) {
+  sendCommand({
+    action: "turn",
+    direction: direction,
+    degrees: 45
+  });
+}
+
+function sendStop() {
+  sendCommand({ action: "stop" });
+}
+</script>
+
+</body>
+</html>
